@@ -2198,16 +2198,28 @@
       return String(Math.round(normalized)).padStart(3, "0");
     }
 
-    function decodeVisibility(token) {
-      if (token === "CAVOK") return "10 km or more, cloud and visibility OK";
-      if (token === "9999") return "10 km or more";
-      if (token.endsWith("SM")) {
-        return `${token.replace("P", "more than ").replace("M", "less than ")} statute miles`;
-      }
-      const metres = Number(token);
-      if (!Number.isNaN(metres)) return metres >= 5000 ? `${(metres / 1000).toFixed(metres % 1000 ? 1 : 0)} km` : `${metres} m`;
-      return token;
-    }
+function decodeVisibility(token) {
+  if (token === "CAVOK") return "10 km or more, cloud and visibility OK";
+  if (token === "9999") return "10 km or more";
+
+  if (token.endsWith("SM")) {
+    let value = token.slice(0, -2); // remove "SM"
+
+    if (value.startsWith("P")) value = "more than " + value.slice(1);
+    else if (value.startsWith("M")) value = "less than " + value.slice(1);
+
+    return `${value} statute miles`;
+  }
+
+  const metres = Number(token);
+  if (!Number.isNaN(metres))
+    return metres >= 5000
+      ? `${(metres / 1000).toFixed(metres % 1000 ? 1 : 0)} km`
+      : `${metres} m`;
+
+  return token;
+}
+
 
     function looksLikeWeather(token) {
       const stripped = token.replace(/^(\+|-|VC)/, "");
