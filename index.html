@@ -35,7 +35,8 @@
     }
 
     button,
-    input {
+    input,
+    textarea {
       font: inherit;
     }
 
@@ -101,6 +102,50 @@
       text-decoration: none;
     }
 
+    .app-nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 0 0 18px;
+      padding: 7px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid rgba(216, 222, 229, 0.86);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 14px 35px rgba(15, 31, 46, 0.11);
+      overflow-x: auto;
+    }
+
+    .nav-tab {
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: #263848;
+      min-height: 40px;
+      padding: 0 14px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .nav-tab:hover {
+      background: #edf4f7;
+    }
+
+    .nav-tab.active {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .page-view {
+      display: none;
+    }
+
+    .page-view.active {
+      display: block;
+    }
+
     .search-panel {
       background: rgba(255, 255, 255, 0.94);
       border: 1px solid rgba(216, 222, 229, 0.8);
@@ -126,21 +171,37 @@
       text-transform: uppercase;
     }
 
-    input {
+    input,
+    textarea {
       width: 100%;
-      height: 48px;
       border: 1px solid var(--line);
       border-radius: 7px;
-      padding: 0 14px;
       background: #ffffff;
       color: var(--ink);
-      text-transform: uppercase;
       font-weight: 800;
       letter-spacing: 0;
       outline: none;
     }
 
-    input:focus {
+    input {
+      height: 48px;
+      padding: 0 14px;
+    }
+
+    #icao {
+      text-transform: uppercase;
+    }
+
+    textarea {
+      min-height: 420px;
+      resize: vertical;
+      padding: 14px;
+      line-height: 1.45;
+      font-weight: 650;
+    }
+
+    input:focus,
+    textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(8, 127, 140, 0.15);
     }
@@ -177,6 +238,10 @@
     .btn:disabled {
       cursor: wait;
       opacity: 0.7;
+    }
+
+    .btn span[aria-hidden="true"] {
+      display: none;
     }
 
     .example-list {
@@ -219,6 +284,50 @@
       grid-template-columns: minmax(0, 1.05fr) minmax(310px, 0.95fr);
       gap: 18px;
       align-items: start;
+    }
+
+    .notes-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .notes-tools {
+      display: grid;
+      gap: 10px;
+    }
+
+    .note-template {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #ffffff;
+      color: #263848;
+      padding: 11px 12px;
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .note-template:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+      background: #f7fbfc;
+    }
+
+    .note-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .note-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+      margin: 12px 0 0;
     }
 
     .panel {
@@ -397,6 +506,7 @@
 
       .topbar,
       .layout,
+      .notes-layout,
       .search-row {
         grid-template-columns: 1fr;
       }
@@ -418,6 +528,15 @@
         grid-template-columns: 1fr;
         gap: 3px;
       }
+
+      .app-nav,
+      .note-actions {
+        width: 100%;
+      }
+
+      .note-actions {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -438,6 +557,13 @@
       <div class="source">Data from <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noreferrer">NOAA Aviation Weather Center</a></div>
     </div>
 
+    <nav class="app-nav" aria-label="Website sections">
+      <button class="nav-tab active" type="button" data-page="tafPage">TAF Decoder</button>
+      <button class="nav-tab" type="button" data-page="metarPage">METAR Decoder</button>
+      <button class="nav-tab" type="button" data-page="notesPage">Pilot Notes</button>
+    </nav>
+
+    <section id="tafPage" class="page-view active" aria-label="TAF decoder page">
     <section class="search-panel" aria-label="TAF lookup">
       <form id="tafForm" class="search-row">
         <div>
@@ -488,6 +614,89 @@
         </div>
       </aside>
     </section>
+    </section>
+
+    <section id="metarPage" class="page-view" aria-label="METAR decoder page">
+      <section class="search-panel" aria-label="METAR lookup">
+        <form id="metarForm" class="search-row">
+          <div>
+            <label for="metarIcao">Airport ICAO code</label>
+            <input id="metarIcao" name="metarIcao" type="text" inputmode="latin" maxlength="4" autocomplete="off" spellcheck="false" placeholder="EGCC" value="EGCC" aria-describedby="metarStatus">
+          </div>
+          <button id="metarSearchBtn" class="btn" type="submit">Decode METAR</button>
+          <button id="metarCopyBtn" class="btn secondary" type="button" disabled>Copy raw</button>
+        </form>
+        <div class="example-list" aria-label="Example airports">
+          <button class="chip" type="button" data-metar-icao="EGCC">EGCC Manchester</button>
+          <button class="chip" type="button" data-metar-icao="EGLL">EGLL Heathrow</button>
+          <button class="chip" type="button" data-metar-icao="KJFK">KJFK New York</button>
+          <button class="chip" type="button" data-metar-icao="EHAM">EHAM Amsterdam</button>
+        </div>
+      </section>
+
+      <div id="metarStatus" class="status" role="status" aria-live="polite"></div>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Decoded Observation</h2>
+            <span id="metarBadge" class="badge">Ready</span>
+          </div>
+          <div class="content">
+            <div id="metarSummary" class="summary-grid" hidden></div>
+            <div id="metarDetails" class="timeline">
+              <div class="empty">Enter a four-letter ICAO code to fetch and decode the latest METAR.</div>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <h2>Raw METAR</h2>
+            <span id="metarStationBadge" class="badge">----</span>
+          </div>
+          <div class="content">
+            <pre id="rawMetar" class="raw">No report loaded yet.</pre>
+            <p class="footer-note">METARs are current observations. Always verify official sources before using weather for real-world flight planning.</p>
+          </div>
+        </aside>
+      </section>
+    </section>
+
+    <section id="notesPage" class="page-view" aria-label="Pilot notes page">
+      <section class="notes-layout">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Pilot Notes</h2>
+            <span id="notesSavedBadge" class="badge">Saved locally</span>
+          </div>
+          <div class="content">
+            <label for="pilotNotes">Flight scratchpad</label>
+            <textarea id="pilotNotes" spellcheck="true" placeholder="Clearance, squawk, stand, taxi route, frequencies, fuel, alternates, ATIS, top of descent notes..."></textarea>
+            <div class="note-actions">
+              <button id="saveNotesBtn" class="btn" type="button">Save notes</button>
+              <button id="copyNotesBtn" class="btn secondary" type="button">Copy notes</button>
+              <button id="clearNotesBtn" class="btn secondary" type="button">Clear notes</button>
+            </div>
+            <p id="notesMeta" class="note-meta">Notes are stored on this device only.</p>
+          </div>
+        </article>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <h2>Quick Blocks</h2>
+            <span class="badge">VATSIM</span>
+          </div>
+          <div class="content notes-tools">
+            <button class="note-template" type="button" data-template="clearance">IFR clearance</button>
+            <button class="note-template" type="button" data-template="departure">Departure brief</button>
+            <button class="note-template" type="button" data-template="arrival">Arrival brief</button>
+            <button class="note-template" type="button" data-template="handoff">Frequency handoff</button>
+            <button id="appendTafBtn" class="note-template" type="button">Add current raw TAF</button>
+          </div>
+        </aside>
+      </section>
+    </section>
   </main>
 
   <script>
@@ -501,8 +710,29 @@
     const summaryEl = document.querySelector("#summary");
     const validBadge = document.querySelector("#validBadge");
     const stationBadge = document.querySelector("#stationBadge");
+    const metarForm = document.querySelector("#metarForm");
+    const metarInput = document.querySelector("#metarIcao");
+    const metarSearchBtn = document.querySelector("#metarSearchBtn");
+    const metarCopyBtn = document.querySelector("#metarCopyBtn");
+    const metarStatusEl = document.querySelector("#metarStatus");
+    const rawMetarEl = document.querySelector("#rawMetar");
+    const metarSummaryEl = document.querySelector("#metarSummary");
+    const metarDetailsEl = document.querySelector("#metarDetails");
+    const metarBadge = document.querySelector("#metarBadge");
+    const metarStationBadge = document.querySelector("#metarStationBadge");
+    const navTabs = document.querySelectorAll(".nav-tab");
+    const pageViews = document.querySelectorAll(".page-view");
+    const pilotNotes = document.querySelector("#pilotNotes");
+    const saveNotesBtn = document.querySelector("#saveNotesBtn");
+    const copyNotesBtn = document.querySelector("#copyNotesBtn");
+    const clearNotesBtn = document.querySelector("#clearNotesBtn");
+    const appendTafBtn = document.querySelector("#appendTafBtn");
+    const notesMeta = document.querySelector("#notesMeta");
+    const notesSavedBadge = document.querySelector("#notesSavedBadge");
 
     let currentRaw = "";
+    let currentRawMetar = "";
+    const notesStorageKey = "tafDecoderPilotNotes";
 
     const weatherCodes = {
       MI: "shallow", PR: "partial", BC: "patches of", DR: "low drifting", BL: "blowing",
@@ -536,8 +766,71 @@
       INTER: "Intermittently"
     };
 
+    const noteTemplates = {
+      clearance: [
+        "IFR CLEARANCE",
+        "Callsign:",
+        "Cleared to:",
+        "SID / departure:",
+        "Squawk:",
+        "Initial altitude:",
+        "Departure frequency:",
+        ""
+      ].join("\n"),
+      departure: [
+        "DEPARTURE BRIEF",
+        "Runway:",
+        "SID:",
+        "Transition:",
+        "Initial altitude:",
+        "Terrain / restrictions:",
+        "First fix:",
+        ""
+      ].join("\n"),
+      arrival: [
+        "ARRIVAL BRIEF",
+        "STAR:",
+        "Runway / approach:",
+        "Transition:",
+        "Minimums:",
+        "Missed approach:",
+        "Taxi plan after landing:",
+        ""
+      ].join("\n"),
+      handoff: [
+        "FREQUENCY HANDOFF",
+        "From:",
+        "To:",
+        "Frequency:",
+        "Instruction:",
+        ""
+      ].join("\n")
+    };
+
+    navTabs.forEach((tab) => {
+      tab.addEventListener("click", () => showPage(tab.dataset.page));
+    });
+
+    document.querySelectorAll("[data-template]").forEach((button) => {
+      button.addEventListener("click", () => appendNoteBlock(noteTemplates[button.dataset.template]));
+    });
+
+    saveNotesBtn.addEventListener("click", saveNotes);
+    copyNotesBtn.addEventListener("click", copyNotes);
+    clearNotesBtn.addEventListener("click", clearNotes);
+    appendTafBtn.addEventListener("click", appendCurrentTaf);
+
+    pilotNotes.addEventListener("input", () => {
+      saveNotes();
+      notesSavedBadge.textContent = "Saved locally";
+    });
+
     input.addEventListener("input", () => {
       input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    });
+
+    metarInput.addEventListener("input", () => {
+      metarInput.value = metarInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
     });
 
     document.querySelectorAll("[data-icao]").forEach((button) => {
@@ -547,15 +840,33 @@
       });
     });
 
+    document.querySelectorAll("[data-metar-icao]").forEach((button) => {
+      button.addEventListener("click", () => {
+        metarInput.value = button.dataset.metarIcao;
+        loadMetar(metarInput.value);
+      });
+    });
+
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       loadTaf(input.value);
+    });
+
+    metarForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadMetar(metarInput.value);
     });
 
     copyBtn.addEventListener("click", async () => {
       if (!currentRaw) return;
       await navigator.clipboard.writeText(currentRaw);
       setStatus("Raw TAF copied.");
+    });
+
+    metarCopyBtn.addEventListener("click", async () => {
+      if (!currentRawMetar) return;
+      await navigator.clipboard.writeText(currentRawMetar);
+      setMetarStatus("Raw METAR copied.");
     });
 
     async function loadTaf(code) {
@@ -593,6 +904,40 @@
       }
     }
 
+    async function loadMetar(code) {
+      const icao = code.trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(icao)) {
+        setMetarStatus("Enter a valid four-character ICAO code, for example EGCC.", true);
+        return;
+      }
+
+      setMetarStatus(`Fetching latest METAR for ${icao}...`);
+      metarSearchBtn.disabled = true;
+      metarCopyBtn.disabled = true;
+      metarBadge.textContent = "Loading";
+      metarStationBadge.textContent = icao;
+
+      try {
+        const payload = await fetchLatestMetar(icao);
+        currentRawMetar = payload.raw;
+        rawMetarEl.textContent = currentRawMetar;
+        metarCopyBtn.disabled = false;
+
+        const decoded = decodeMetar(currentRawMetar, payload);
+        renderMetarDecoded(decoded, payload);
+        setMetarStatus(`Latest METAR loaded for ${decoded.station || icao}.`);
+      } catch (error) {
+        currentRawMetar = "";
+        rawMetarEl.textContent = "No report loaded.";
+        metarSummaryEl.hidden = true;
+        metarDetailsEl.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+        metarBadge.textContent = "Unavailable";
+        setMetarStatus(error.message, true);
+      } finally {
+        metarSearchBtn.disabled = false;
+      }
+    }
+
     async function fetchLatestTaf(icao) {
       if (isLocalServer()) {
         return fetchLocalTaf(icao);
@@ -602,6 +947,14 @@
         return await fetchCodetabsTaf(icao);
       } catch (proxyError) {
         throw new Error(`${proxyError.message} GitHub Pages cannot contact NOAA directly because NOAA blocks browser CORS. If this keeps happening, deploy the included server.js somewhere that supports Node, or add your own CORS proxy.`);
+      }
+    }
+
+    async function fetchLatestMetar(icao) {
+      try {
+        return await fetchCodetabsMetar(icao);
+      } catch (proxyError) {
+        throw new Error(`${proxyError.message} GitHub Pages cannot contact NOAA directly because NOAA blocks browser CORS. If this keeps happening, use a deployed backend or your own CORS proxy.`);
       }
     }
 
@@ -631,8 +984,25 @@
       return normalizeAwcReport(payload, icao);
     }
 
+    async function fetchCodetabsMetar(icao) {
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${awcMetarUrl(icao).replace(/&/g, "%26")}`;
+      const response = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
+      const text = await response.text();
+
+      if (!response.ok) {
+        throw new Error(`The published page could not reach Aviation Weather for ${icao}.`);
+      }
+
+      const payload = parseJsonText(text);
+      return normalizeMetarReport(payload, icao);
+    }
+
     function awcTafUrl(icao) {
       return `https://aviationweather.gov/api/data/taf?ids=${encodeURIComponent(icao)}&format=json`;
+    }
+
+    function awcMetarUrl(icao) {
+      return `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(icao)}&format=json`;
     }
 
     async function readJsonResponse(response) {
@@ -659,10 +1029,35 @@
       return {
         station: report.icaoId || report.stationId || report.station_id || icao,
         raw,
-        issueTime: report.issueTime || report.issue_time || report.issuance_time || null,
-        receiptTime: report.receiptTime || report.receipt_time || report.validTimeFrom || null,
+        issueTime: normalizeApiTime(report.issueTime || report.issue_time || report.issuance_time),
+        receiptTime: normalizeApiTime(report.receiptTime || report.receipt_time || report.validTimeFrom),
         source: "NOAA Aviation Weather Center"
       };
+    }
+
+    function normalizeMetarReport(payload, icao) {
+      const report = Array.isArray(payload) ? payload[0] : payload?.data?.[0] || payload;
+      const raw = extractRawMetar(report);
+
+      if (!raw) {
+        throw new Error(`No recent METAR was found for ${icao}.`);
+      }
+
+      return {
+        station: report.icaoId || report.stationId || report.station_id || icao,
+        raw,
+        observationTime: normalizeApiTime(report.obsTime || report.observationTime || report.observation_time || report.reportTime),
+        flightCategory: report.fltCat || report.flight_category || report.flightCategory || null,
+        source: "NOAA Aviation Weather Center"
+      };
+    }
+
+    function normalizeApiTime(value) {
+      if (!value) return null;
+      if (typeof value === "number") {
+        return new Date(value < 100000000000 ? value * 1000 : value).toISOString();
+      }
+      return value;
     }
 
     function extractRawTaf(report) {
@@ -676,6 +1071,25 @@
         report?.raw_text,
         report?.rawText,
         report?.taf,
+        report?.text
+      ];
+
+      const raw = candidates.find((value) => typeof value === "string" && value.trim());
+      return raw ? raw.replace(/\s+/g, " ").trim() : "";
+    }
+
+    function extractRawMetar(report) {
+      if (typeof report === "string") {
+        return report.replace(/\s+/g, " ").trim();
+      }
+
+      const candidates = [
+        report?.rawOb,
+        report?.rawMETAR,
+        report?.rawMetar,
+        report?.raw_text,
+        report?.rawText,
+        report?.metar,
         report?.text
       ];
 
@@ -699,6 +1113,64 @@
         issuedAt,
         validity,
         periods: periods.map(parsePeriod)
+      };
+    }
+
+    function decodeMetar(raw, meta = {}) {
+      const tokens = raw.replace(/\s+/g, " ").trim().split(" ");
+      const station = tokens[0] === "METAR" || tokens[0] === "SPECI" ? tokens[1] : tokens[0];
+      const observedToken = tokens.find((token) => /^\d{6}Z$/.test(token));
+      const observedAt = observedToken ? tafTimeToDate(observedToken, meta.observationTime || new Date()) : null;
+      const details = {
+        type: raw.startsWith("SPECI") ? "Special observation" : "Routine observation",
+        wind: "Not specified",
+        visibility: "Not specified",
+        weather: [],
+        clouds: [],
+        temperature: "Not specified",
+        pressure: "Not specified",
+        other: []
+      };
+
+      tokens.forEach((token) => {
+        if (/^(METAR|SPECI|AUTO|COR|NIL)$/.test(token) || token === station || /^\d{6}Z$/.test(token)) return;
+
+        if (/^(VRB|\d{3})\d{2,3}(G\d{2,3})?(KT|MPS)$/.test(token)) {
+          details.wind = decodeWind(token);
+        } else if (/^\d{3}V\d{3}$/.test(token)) {
+          details.other.push(`wind varying between ${Number(token.slice(0, 3))} and ${Number(token.slice(4))} degrees`);
+        } else if (/^(P|M)?\d{1,4}(SM)?$/.test(token) || /^\d+\/\d+SM$/.test(token) || /^CAVOK$/.test(token)) {
+          details.visibility = decodeVisibility(token);
+          if (token === "CAVOK") details.clouds.push("no significant cloud below 5,000 ft and no significant weather");
+        } else if (/^(-|\+|VC)?[A-Z]{2,8}$/.test(token) && looksLikeWeather(token)) {
+          details.weather.push(decodeWeather(token));
+        } else if (/^(FEW|SCT|BKN|OVC|VV)\d{3}(CB|TCU)?$/.test(token) || /^(NSC|SKC|CLR)$/.test(token)) {
+          details.clouds.push(decodeCloud(token));
+        } else if (token === "NCD") {
+          details.clouds.push("no cloud detected");
+        } else if (/^(M?\d{2}|\/\/)\/(M?\d{2}|\/\/)$/.test(token)) {
+          details.temperature = decodeMetarTemperature(token);
+        } else if (/^Q\d{4}$/.test(token)) {
+          details.pressure = `QNH ${token.slice(1)} hPa`;
+        } else if (/^A\d{4}$/.test(token)) {
+          details.pressure = `Altimeter ${token.slice(1, 3)}.${token.slice(3)} inHg`;
+        } else if (/^R\d{2}[LCR]?\/[MP]?\d{4}[UDN]?$/.test(token)) {
+          details.other.push(decodeRunwayVisualRange(token));
+        } else if (token === "NOSIG") {
+          details.other.push("no significant change expected");
+        } else if (!/^\d{2}\/\d{2}$/.test(token)) {
+          details.other.push(token);
+        }
+      });
+
+      if (!details.weather.length) details.weather.push("no significant weather mentioned");
+      if (!details.clouds.length) details.clouds.push("cloud not specified");
+
+      return {
+        station,
+        observedAt,
+        flightCategory: meta.flightCategory || "Not supplied",
+        details
       };
     }
 
@@ -799,7 +1271,9 @@
     function decodeVisibility(token) {
       if (token === "CAVOK") return "10 km or more, cloud and visibility OK";
       if (token === "9999") return "10 km or more";
-      if (token.endsWith("SM")) return `${token.replace("P", "more than ")} statute miles`;
+      if (token.endsWith("SM")) {
+        return `${token.replace("P", "more than ").replace("M", "less than ")} statute miles`;
+      }
       const metres = Number(token);
       if (!Number.isNaN(metres)) return metres >= 5000 ? `${(metres / 1000).toFixed(metres % 1000 ? 1 : 0)} km` : `${metres} m`;
       return token;
@@ -848,6 +1322,24 @@
       const label = match[1] === "TX" ? "maximum temperature" : "minimum temperature";
       const temp = `${match[2] ? "-" : ""}${Number(match[3])}°C`;
       return `${label} ${temp} at ${match[4].slice(0, 2)}:${match[4].slice(2)}Z`;
+    }
+
+    function decodeMetarTemperature(token) {
+      const [tempRaw, dewRaw] = token.split("/");
+      return `temperature ${decodeSignedTemperature(tempRaw)}, dew point ${decodeSignedTemperature(dewRaw)}`;
+    }
+
+    function decodeSignedTemperature(value) {
+      if (value === "//") return "not reported";
+      return `${value.startsWith("M") ? "-" : ""}${Number(value.replace("M", ""))}°C`;
+    }
+
+    function decodeRunwayVisualRange(token) {
+      const match = token.match(/^R(\d{2}[LCR]?)\/([MP]?)(\d{4})([UDN]?)$/);
+      if (!match) return token;
+      const prefix = match[2] === "P" ? "more than " : match[2] === "M" ? "less than " : "";
+      const trend = match[4] === "U" ? ", increasing" : match[4] === "D" ? ", decreasing" : match[4] === "N" ? ", no change" : "";
+      return `runway ${match[1]} visual range ${prefix}${Number(match[3]).toLocaleString()} m${trend}`;
     }
 
     function parseValidity(token, baseDate) {
@@ -911,6 +1403,37 @@
       }).join("");
     }
 
+    function renderMetarDecoded(decoded, meta) {
+      metarStationBadge.textContent = decoded.station || meta.station || "----";
+      metarBadge.textContent = decoded.flightCategory || "Decoded";
+
+      metarSummaryEl.hidden = false;
+      metarSummaryEl.innerHTML = [
+        metric("Station", decoded.station || meta.station || "Unknown"),
+        metric("Observed", decoded.observedAt ? formatDate(decoded.observedAt) : formatMaybe(meta.observationTime)),
+        metric("Report type", decoded.details.type),
+        metric("Flight category", decoded.flightCategory || "Not supplied")
+      ].join("");
+
+      metarDetailsEl.innerHTML = `
+        <article class="period">
+          <div class="period-title">
+            <h3>Current Conditions</h3>
+            <time>${escapeHtml(decoded.observedAt ? formatDate(decoded.observedAt) : "latest report")}</time>
+          </div>
+          <dl class="facts">
+            ${fact("Wind", decoded.details.wind)}
+            ${fact("Visibility", decoded.details.visibility)}
+            ${fact("Weather", decoded.details.weather.join(", "))}
+            ${fact("Cloud", decoded.details.clouds.join(", "))}
+            ${fact("Temp / Dew", decoded.details.temperature)}
+            ${fact("Pressure", decoded.details.pressure)}
+            ${decoded.details.other.length ? fact("Other", decoded.details.other.join(", ")) : ""}
+          </dl>
+        </article>
+      `;
+    }
+
     function metric(label, value) {
       return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
     }
@@ -957,6 +1480,82 @@
       statusEl.classList.toggle("error", isError);
     }
 
+    function setMetarStatus(message, isError = false) {
+      metarStatusEl.textContent = message;
+      metarStatusEl.classList.toggle("error", isError);
+    }
+
+    function showPage(pageId) {
+      pageViews.forEach((page) => {
+        page.classList.toggle("active", page.id === pageId);
+      });
+
+      navTabs.forEach((tab) => {
+        const isActive = tab.dataset.page === pageId;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-current", isActive ? "page" : "false");
+      });
+    }
+
+    function loadNotes() {
+      const saved = localStorage.getItem(notesStorageKey);
+      pilotNotes.value = saved || [
+        "FLIGHT NOTES",
+        "Callsign:",
+        "Route:",
+        "Departure:",
+        "Arrival:",
+        "Cruise:",
+        "",
+        "ATIS:",
+        "Clearance:",
+        "Taxi:",
+        "Frequencies:",
+        ""
+      ].join("\n");
+      updateNotesMeta();
+    }
+
+    function saveNotes() {
+      localStorage.setItem(notesStorageKey, pilotNotes.value);
+      updateNotesMeta();
+    }
+
+    async function copyNotes() {
+      await navigator.clipboard.writeText(pilotNotes.value);
+      notesSavedBadge.textContent = "Copied";
+      notesMeta.textContent = "Notes copied to clipboard.";
+    }
+
+    function clearNotes() {
+      if (!confirm("Clear all saved pilot notes?")) return;
+      pilotNotes.value = "";
+      saveNotes();
+      notesSavedBadge.textContent = "Cleared";
+    }
+
+    function appendCurrentTaf() {
+      if (!currentRaw) {
+        notesSavedBadge.textContent = "No TAF loaded";
+        notesMeta.textContent = "Load a TAF first, then add it to your notes.";
+        return;
+      }
+
+      appendNoteBlock(`RAW TAF\n${currentRaw}\n`);
+    }
+
+    function appendNoteBlock(text) {
+      const separator = pilotNotes.value.trim() ? "\n\n" : "";
+      pilotNotes.value = `${pilotNotes.value}${separator}${text}`;
+      saveNotes();
+      pilotNotes.focus();
+    }
+
+    function updateNotesMeta() {
+      const count = pilotNotes.value.length;
+      notesMeta.textContent = `${count.toLocaleString()} characters saved on this device only.`;
+    }
+
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (char) => ({
         "&": "&amp;",
@@ -967,7 +1566,9 @@
       }[char]));
     }
 
+    loadNotes();
     loadTaf(input.value);
+    loadMetar(metarInput.value);
   </script>
 </body>
 </html>
