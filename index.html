@@ -571,11 +571,7 @@
       stationBadge.textContent = icao;
 
       try {
-        const response = await fetch(`/api/taf/${encodeURIComponent(icao)}`);
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.error || "Could not fetch a TAF for that airport.");
-        }
+        const payload = await fetchLatestTaf(icao);
 
         currentRaw = payload.raw;
         rawEl.textContent = currentRaw;
@@ -594,6 +590,109 @@
       } finally {
         searchBtn.disabled = false;
       }
+    }
+
+    async function fetchLatestTaf(icao) {
+      if (isLocalServer()) {
+        return fetchLocalTaf(icao);
+      }
+
+      try {
+        return await fetchAwcTaf(icao);
+      } catch (directError) {
+        return fetchProxiedAwcTaf(icao, directError);
+      }
+    }
+
+    function isLocalServer() {
+      return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    }
+
+    async function fetchLocalTaf(icao) {
+      const response = await fetch(`/api/taf/${encodeURIComponent(icao)}`);
+      const payload = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not fetch a TAF for that airport.");
+      }
+      return payload;
+    }
+
+    async function fetchAwcTaf(icao) {
+      const url = awcTafUrl(icao);
+      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      if (response.status === 204) {
+        throw new Error(`No recent TAF was found for ${icao}.`);
+      }
+      const payload = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(payload.error || `Aviation Weather returned HTTP ${response.status}.`);
+      }
+      return normalizeAwcReport(payload, icao);
+    }
+
+    async function fetchProxiedAwcTaf(icao, directError) {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(awcTafUrl(icao))}`;
+      const response = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
+      const text = await response.text();
+
+      if (!response.ok) {
+        throw new Error(directError?.message || `The published page could not reach Aviation Weather for ${icao}.`);
+      }
+
+      const payload = parseJsonText(text);
+      return normalizeAwcReport(payload, icao);
+    }
+
+    function awcTafUrl(icao) {
+      return `https://aviationweather.gov/api/data/taf?ids=${encodeURIComponent(icao)}&format=json`;
+    }
+
+    async function readJsonResponse(response) {
+      const text = await response.text();
+      return parseJsonText(text);
+    }
+
+    function parseJsonText(text) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error("The weather service returned a response that was not valid JSON.");
+      }
+    }
+
+    function normalizeAwcReport(payload, icao) {
+      const report = Array.isArray(payload) ? payload[0] : payload?.data?.[0] || payload;
+      const raw = extractRawTaf(report);
+
+      if (!raw) {
+        throw new Error(`No recent TAF was found for ${icao}.`);
+      }
+
+      return {
+        station: report.icaoId || report.stationId || report.station_id || icao,
+        raw,
+        issueTime: report.issueTime || report.issue_time || report.issuance_time || null,
+        receiptTime: report.receiptTime || report.receipt_time || report.validTimeFrom || null,
+        source: "NOAA Aviation Weather Center"
+      };
+    }
+
+    function extractRawTaf(report) {
+      if (typeof report === "string") {
+        return report.replace(/\s+/g, " ").trim();
+      }
+
+      const candidates = [
+        report?.rawTAF,
+        report?.rawTaf,
+        report?.raw_text,
+        report?.rawText,
+        report?.taf,
+        report?.text
+      ];
+
+      const raw = candidates.find((value) => typeof value === "string" && value.trim());
+      return raw ? raw.replace(/\s+/g, " ").trim() : "";
     }
 
     function decodeTaf(raw, meta = {}) {
