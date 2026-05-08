@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TAF Decoder</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23087f8c'/%3E%3Cpath d='M10 42h44M18 34 30 12h9l-7 22h16l-5 8H11l7-8h14' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <style>
     :root {
       color-scheme: light;
@@ -598,9 +599,9 @@
       }
 
       try {
-        return await fetchAwcTaf(icao);
-      } catch (directError) {
-        return fetchProxiedAwcTaf(icao, directError);
+        return await fetchCodetabsTaf(icao);
+      } catch (proxyError) {
+        throw new Error(`${proxyError.message} GitHub Pages cannot contact NOAA directly because NOAA blocks browser CORS. If this keeps happening, deploy the included server.js somewhere that supports Node, or add your own CORS proxy.`);
       }
     }
 
@@ -617,26 +618,13 @@
       return payload;
     }
 
-    async function fetchAwcTaf(icao) {
-      const url = awcTafUrl(icao);
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      if (response.status === 204) {
-        throw new Error(`No recent TAF was found for ${icao}.`);
-      }
-      const payload = await readJsonResponse(response);
-      if (!response.ok) {
-        throw new Error(payload.error || `Aviation Weather returned HTTP ${response.status}.`);
-      }
-      return normalizeAwcReport(payload, icao);
-    }
-
-    async function fetchProxiedAwcTaf(icao, directError) {
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(awcTafUrl(icao))}`;
+    async function fetchCodetabsTaf(icao) {
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${awcTafUrl(icao).replace(/&/g, "%26")}`;
       const response = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
       const text = await response.text();
 
       if (!response.ok) {
-        throw new Error(directError?.message || `The published page could not reach Aviation Weather for ${icao}.`);
+        throw new Error(`The published page could not reach Aviation Weather for ${icao}.`);
       }
 
       const payload = parseJsonText(text);
