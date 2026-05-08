@@ -1,0 +1,9 @@
+{
+  "name": "taf-decoder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local website for fetching and decoding live TAF reports by ICAO airport code.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

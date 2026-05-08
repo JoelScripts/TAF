@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TAF Decoder</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5c6975;
+      --line: #d8dee5;
+      --panel: #ffffff;
+      --soft: #f3f7fa;
+      --accent: #087f8c;
+      --accent-dark: #075e68;
+      --warn: #a75506;
+      --good: #247244;
+      --bad: #b42318;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(243, 247, 250, 0.88), rgba(243, 247, 250, 0.98)),
+        url("https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&fit=crop&w=1800&q=80") center 32% / cover fixed;
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #0f1f2e;
+      display: grid;
+      place-items: center;
+      color: #ffffff;
+      box-shadow: 0 10px 30px rgba(15, 31, 46, 0.22);
+    }
+
+    .mark svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .source {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: right;
+    }
+
+    .source a {
+      color: var(--accent-dark);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .search-panel {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(216, 222, 229, 0.8);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(15, 31, 46, 0.14);
+      margin-bottom: 18px;
+    }
+
+    .search-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+    }
+
+    input {
+      width: 100%;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 14px;
+      background: #ffffff;
+      color: var(--ink);
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(8, 127, 140, 0.15);
+    }
+
+    .btn {
+      height: 48px;
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #ffffff;
+      padding: 0 18px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--accent-dark);
+    }
+
+    .btn.secondary {
+      background: #e7eef3;
+      color: #20303d;
+    }
+
+    .btn.secondary:hover {
+      background: #d9e4eb;
+    }
+
+    .btn:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .example-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: #263848;
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      border-color: var(--accent);
+      color: var(--accent-dark);
+    }
+
+    .status {
+      min-height: 26px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 8px 0 12px;
+    }
+
+    .status.error {
+      color: var(--bad);
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(310px, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(216, 222, 229, 0.86);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 18px 45px rgba(15, 31, 46, 0.11);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      background: #e9f7f5;
+      color: #075e68;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 18px;
+    }
+
+    .raw {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #111c27;
+      color: #eef7fb;
+      border-radius: 7px;
+      padding: 16px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 12px;
+      background: #ffffff;
+      min-height: 76px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .period {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .period.change-tempo {
+      border-left-color: var(--warn);
+    }
+
+    .period.change-prob {
+      border-left-color: #6f5bd6;
+    }
+
+    .period-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .period-title h3 {
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .period-title time {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    .facts {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .fact {
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr);
+      gap: 10px;
+      padding: 8px 0;
+      border-top: 1px solid #edf1f4;
+    }
+
+    .fact:first-child {
+      border-top: 0;
+    }
+
+    .fact dt {
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 0.82rem;
+    }
+
+    .fact dd {
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .empty {
+      color: var(--muted);
+      background: #ffffff;
+      border: 1px dashed #cbd5de;
+      border-radius: 8px;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 820px) {
+      .shell {
+        width: min(100% - 22px, 1180px);
+        padding-top: 18px;
+      }
+
+      .topbar,
+      .layout,
+      .search-row {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar,
+      .source {
+        text-align: left;
+      }
+
+      .search-row {
+        display: grid;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .fact {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M4 22h24M8 17l7-11h5l-4 11m0 0h8l-2 5H5l3-5h8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>TAF Decoder</h1>
+          <p class="subtitle">Live terminal aerodrome forecasts translated into plain English.</p>
+        </div>
+      </div>
+      <div class="source">Data from <a href="https://aviationweather.gov/data/api/" target="_blank" rel="noreferrer">NOAA Aviation Weather Center</a></div>
+    </div>
+
+    <section class="search-panel" aria-label="TAF lookup">
+      <form id="tafForm" class="search-row">
+        <div>
+          <label for="icao">Airport ICAO code</label>
+          <input id="icao" name="icao" type="text" inputmode="latin" maxlength="4" autocomplete="off" spellcheck="false" placeholder="EGCC" value="EGCC" aria-describedby="status">
+        </div>
+        <button id="searchBtn" class="btn" type="submit">
+          <span aria-hidden="true">⌕</span>
+          Decode TAF
+        </button>
+        <button id="copyBtn" class="btn secondary" type="button" disabled>
+          <span aria-hidden="true">⧉</span>
+          Copy raw
+        </button>
+      </form>
+      <div class="example-list" aria-label="Example airports">
+        <button class="chip" type="button" data-icao="EGCC">EGCC Manchester</button>
+        <button class="chip" type="button" data-icao="EGLL">EGLL Heathrow</button>
+        <button class="chip" type="button" data-icao="KJFK">KJFK New York</button>
+        <button class="chip" type="button" data-icao="EHAM">EHAM Amsterdam</button>
+      </div>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <section class="layout">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Decoded Forecast</h2>
+          <span id="validBadge" class="badge">Ready</span>
+        </div>
+        <div class="content">
+          <div id="summary" class="summary-grid" hidden></div>
+          <div id="timeline" class="timeline">
+            <div class="empty">Enter a four-letter ICAO code to fetch and decode the latest TAF.</div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <h2>Raw TAF</h2>
+          <span id="stationBadge" class="badge">----</span>
+        </div>
+        <div class="content">
+          <pre id="rawTaf" class="raw">No report loaded yet.</pre>
+          <p class="footer-note">This tool is for quick reading and learning. For operational flight planning, always use official weather briefing sources and local procedures.</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const form = document.querySelector("#tafForm");
+    const input = document.querySelector("#icao");
+    const searchBtn = document.querySelector("#searchBtn");
+    const copyBtn = document.querySelector("#copyBtn");
+    const statusEl = document.querySelector("#status");
+    const rawEl = document.querySelector("#rawTaf");
+    const timelineEl = document.querySelector("#timeline");
+    const summaryEl = document.querySelector("#summary");
+    const validBadge = document.querySelector("#validBadge");
+    const stationBadge = document.querySelector("#stationBadge");
+
+    let currentRaw = "";
+
+    const weatherCodes = {
+      MI: "shallow", PR: "partial", BC: "patches of", DR: "low drifting", BL: "blowing",
+      SH: "showers of", TS: "thunderstorm with", FZ: "freezing",
+      DZ: "drizzle", RA: "rain", SN: "snow", SG: "snow grains", IC: "ice crystals",
+      PL: "ice pellets", GR: "hail", GS: "small hail or snow pellets", UP: "unknown precipitation",
+      BR: "mist", FG: "fog", FU: "smoke", VA: "volcanic ash", DU: "widespread dust",
+      SA: "sand", HZ: "haze", PY: "spray", PO: "dust or sand whirls", SQ: "squalls",
+      FC: "funnel cloud or tornado", SS: "sandstorm", DS: "dust storm"
+    };
+
+    const cloudCodes = {
+      FEW: "few clouds",
+      SCT: "scattered clouds",
+      BKN: "broken cloud",
+      OVC: "overcast",
+      VV: "vertical visibility"
+    };
+
+    const changeLabels = {
+      INITIAL: "Main forecast",
+      FM: "From",
+      BECMG: "Becoming",
+      TEMPO: "Temporarily",
+      PROB30: "30% probability",
+      PROB40: "40% probability",
+      "PROB30 TEMPO": "30% probability, temporarily",
+      "PROB40 TEMPO": "40% probability, temporarily",
+      "PROB30 BECMG": "30% probability, becoming",
+      "PROB40 BECMG": "40% probability, becoming",
+      INTER: "Intermittently"
+    };
+
+    input.addEventListener("input", () => {
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    });
+
+    document.querySelectorAll("[data-icao]").forEach((button) => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.icao;
+        loadTaf(input.value);
+      });
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadTaf(input.value);
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      if (!currentRaw) return;
+      await navigator.clipboard.writeText(currentRaw);
+      setStatus("Raw TAF copied.");
+    });
+
+    async function loadTaf(code) {
+      const icao = code.trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(icao)) {
+        setStatus("Enter a valid four-character ICAO code, for example EGCC.", true);
+        return;
+      }
+
+      setStatus(`Fetching latest TAF for ${icao}...`);
+      searchBtn.disabled = true;
+      copyBtn.disabled = true;
+      validBadge.textContent = "Loading";
+      stationBadge.textContent = icao;
+
+      try {
+        const response = await fetch(`/api/taf/${encodeURIComponent(icao)}`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "Could not fetch a TAF for that airport.");
+        }
+
+        currentRaw = payload.raw;
+        rawEl.textContent = currentRaw;
+        copyBtn.disabled = false;
+
+        const decoded = decodeTaf(currentRaw, payload);
+        renderDecoded(decoded, payload);
+        setStatus(`Latest TAF loaded for ${decoded.station || icao}.`);
+      } catch (error) {
+        currentRaw = "";
+        rawEl.textContent = "No report loaded.";
+        summaryEl.hidden = true;
+        timelineEl.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+        validBadge.textContent = "Unavailable";
+        setStatus(error.message, true);
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function decodeTaf(raw, meta = {}) {
+      const tokens = raw.replace(/\s+/g, " ").trim().split(" ");
+      const station = tokens[0] === "TAF" || tokens[0] === "TAF AMD" ? tokens.find((token) => /^[A-Z0-9]{4}$/.test(token)) : tokens[0];
+      const issueToken = tokens.find((token) => /^\d{6}Z$/.test(token));
+      const validityToken = tokens.find((token) => /^\d{4,6}\/\d{4,6}$/.test(token));
+      const issuedAt = issueToken ? tafTimeToDate(issueToken, meta.issueTime || meta.receiptTime) : null;
+      const validity = validityToken ? parseValidity(validityToken, issuedAt || new Date()) : {};
+      const startIndex = Math.max(tokens.indexOf(validityToken), tokens.indexOf(issueToken)) + 1;
+      const forecastTokens = tokens.slice(Math.max(startIndex, 0));
+      const periods = splitPeriods(forecastTokens, issuedAt || new Date(), validity);
+
+      return {
+        station,
+        issuedAt,
+        validity,
+        periods: periods.map(parsePeriod)
+      };
+    }
+
+    function splitPeriods(tokens, baseDate, validity) {
+      const periods = [];
+      let current = { type: "INITIAL", raw: [], from: validity.from, to: validity.to };
+
+      tokens.forEach((token) => {
+        const fm = token.match(/^FM(\d{6})$/);
+        const change = token.match(/^(BECMG|TEMPO|INTER|PROB30|PROB40)$/);
+
+        if (fm || change) {
+          if (change && current.type.startsWith("PROB") && current.raw.length === 1 && ["TEMPO", "BECMG", "INTER"].includes(change[1])) {
+            current.type = `${current.type} ${change[1]}`;
+            current.raw.push(token);
+            return;
+          }
+
+          if (current.raw.length) periods.push(current);
+          if (fm) {
+            current = { type: "FM", raw: [token], from: tafTimeToDate(`${fm[1]}Z`, baseDate), to: validity.to };
+          } else {
+            current = { type: change[1], raw: [token], from: null, to: null };
+          }
+        } else {
+          current.raw.push(token);
+        }
+      });
+
+      if (current.raw.length) periods.push(current);
+
+      periods.forEach((period, index) => {
+        const rangeToken = period.raw.find((token) => /^\d{4,6}\/\d{4,6}$/.test(token));
+        if (rangeToken) {
+          const range = parseValidity(rangeToken, baseDate);
+          period.from = range.from;
+          period.to = range.to;
+        }
+
+        const nextFrom = periods.slice(index + 1).find((next) => next.from)?.from;
+        if (period.type === "FM" || period.type === "INITIAL") {
+          period.to = nextFrom || period.to || validity.to;
+        }
+      });
+
+      return periods;
+    }
+
+    function parsePeriod(period) {
+      const details = {
+        wind: "Not specified",
+        visibility: "Not specified",
+        weather: [],
+        clouds: [],
+        temperatures: [],
+        other: []
+      };
+
+      period.raw.forEach((token) => {
+        if (/^(FM\d{6}|BECMG|TEMPO|INTER|PROB30|PROB40|\d{4,6}\/\d{4,6})$/.test(token)) return;
+
+        if (/^(VRB|\d{3})\d{2,3}(G\d{2,3})?(KT|MPS)$/.test(token)) {
+          details.wind = decodeWind(token);
+        } else if (/^(P)?\d{1,4}(SM)?$/.test(token) || /^\d+\/\d+SM$/.test(token) || /^CAVOK$/.test(token)) {
+          details.visibility = decodeVisibility(token);
+          if (token === "CAVOK") details.clouds.push("no significant cloud below 5,000 ft and no significant weather");
+        } else if (/^(-|\+|VC)?[A-Z]{2,8}$/.test(token) && looksLikeWeather(token)) {
+          details.weather.push(decodeWeather(token));
+        } else if (/^(FEW|SCT|BKN|OVC|VV)\d{3}(CB|TCU)?$/.test(token) || /^(NSC|SKC|CLR)$/.test(token)) {
+          details.clouds.push(decodeCloud(token));
+        } else if (/^TX[M]?\d{2}\/\d{4}Z$/.test(token) || /^TN[M]?\d{2}\/\d{4}Z$/.test(token)) {
+          details.temperatures.push(decodeTemperature(token));
+        } else if (/^Q\d{4}$/.test(token)) {
+          details.other.push(`QNH ${token.slice(1)} hPa`);
+        } else if (/^A\d{4}$/.test(token)) {
+          details.other.push(`Altimeter ${token.slice(1, 3)}.${token.slice(3)} inHg`);
+        } else if (token !== "TAF" && token !== "AMD" && token !== "COR") {
+          details.other.push(token);
+        }
+      });
+
+      if (!details.weather.length) details.weather.push("no significant weather mentioned");
+      if (!details.clouds.length) details.clouds.push("cloud not specified");
+
+      return { ...period, details };
+    }
+
+    function decodeWind(token) {
+      const match = token.match(/^(VRB|\d{3})(\d{2,3})(G(\d{2,3}))?(KT|MPS)$/);
+      if (!match) return token;
+      const direction = match[1] === "VRB" ? "variable direction" : `${Number(match[1])} degrees`;
+      const speed = Number(match[2]);
+      const gust = match[4] ? `, gusting ${Number(match[4])}` : "";
+      const unit = match[5] === "KT" ? "kt" : "m/s";
+      return `${direction} at ${speed}${unit}${gust}`;
+    }
+
+    function decodeVisibility(token) {
+      if (token === "CAVOK") return "10 km or more, cloud and visibility OK";
+      if (token === "9999") return "10 km or more";
+      if (token.endsWith("SM")) return `${token.replace("P", "more than ")} statute miles`;
+      const metres = Number(token);
+      if (!Number.isNaN(metres)) return metres >= 5000 ? `${(metres / 1000).toFixed(metres % 1000 ? 1 : 0)} km` : `${metres} m`;
+      return token;
+    }
+
+    function looksLikeWeather(token) {
+      const stripped = token.replace(/^(\+|-|VC)/, "");
+      return Object.keys(weatherCodes).some((code) => stripped.includes(code));
+    }
+
+    function decodeWeather(token) {
+      let intensity = "";
+      let value = token;
+      if (value.startsWith("-")) {
+        intensity = "light ";
+        value = value.slice(1);
+      } else if (value.startsWith("+")) {
+        intensity = "heavy ";
+        value = value.slice(1);
+      } else if (value.startsWith("VC")) {
+        intensity = "in the vicinity: ";
+        value = value.slice(2);
+      }
+
+      const words = [];
+      for (let index = 0; index < value.length; index += 2) {
+        const code = value.slice(index, index + 2);
+        words.push(weatherCodes[code] || code);
+      }
+      return `${intensity}${words.join(" ")}`;
+    }
+
+    function decodeCloud(token) {
+      if (token === "NSC") return "no significant cloud";
+      if (token === "SKC" || token === "CLR") return "sky clear";
+      const match = token.match(/^(FEW|SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?$/);
+      if (!match) return token;
+      const height = Number(match[2]) * 100;
+      const cloudType = match[3] === "CB" ? " cumulonimbus" : match[3] === "TCU" ? " towering cumulus" : "";
+      return `${cloudCodes[match[1]]} at ${height.toLocaleString()} ft${cloudType}`;
+    }
+
+    function decodeTemperature(token) {
+      const match = token.match(/^(TX|TN)(M)?(\d{2})\/(\d{4})Z$/);
+      if (!match) return token;
+      const label = match[1] === "TX" ? "maximum temperature" : "minimum temperature";
+      const temp = `${match[2] ? "-" : ""}${Number(match[3])}°C`;
+      return `${label} ${temp} at ${match[4].slice(0, 2)}:${match[4].slice(2)}Z`;
+    }
+
+    function parseValidity(token, baseDate) {
+      const [fromRaw, toRaw] = token.split("/");
+      const from = tafTimeToDate(`${fromRaw.padEnd(6, "0")}Z`, baseDate);
+      let to = tafTimeToDate(`${toRaw.padEnd(6, "0")}Z`, from);
+      if (to <= from) {
+        to = new Date(to);
+        to.setUTCMonth(to.getUTCMonth() + 1);
+      }
+      return { from, to };
+    }
+
+    function tafTimeToDate(token, base = new Date()) {
+      const date = new Date(base || Date.now());
+      const match = token.match(/^(\d{2})(\d{2})(\d{2})Z$/);
+      if (!match) return null;
+      const day = Number(match[1]);
+      const hour = Number(match[2]);
+      const minute = Number(match[3]);
+      const result = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), day, hour, minute));
+      const diffDays = (result - date) / 86400000;
+      if (diffDays > 20) result.setUTCMonth(result.getUTCMonth() - 1);
+      if (diffDays < -20) result.setUTCMonth(result.getUTCMonth() + 1);
+      return result;
+    }
+
+    function renderDecoded(decoded, meta) {
+      stationBadge.textContent = decoded.station || meta.station || "----";
+      validBadge.textContent = decoded.validity.from && decoded.validity.to
+        ? `${formatShort(decoded.validity.from)} to ${formatShort(decoded.validity.to)}`
+        : "Decoded";
+
+      summaryEl.hidden = false;
+      summaryEl.innerHTML = [
+        metric("Station", decoded.station || meta.station || "Unknown"),
+        metric("Issued", decoded.issuedAt ? formatDate(decoded.issuedAt) : formatMaybe(meta.issueTime)),
+        metric("Valid from", decoded.validity.from ? formatDate(decoded.validity.from) : "Unknown"),
+        metric("Valid until", decoded.validity.to ? formatDate(decoded.validity.to) : "Unknown")
+      ].join("");
+
+      timelineEl.innerHTML = decoded.periods.map((period) => {
+        const title = changeLabels[period.type] || period.type;
+        const css = period.type.startsWith("PROB") ? "change-prob" : ["TEMPO", "BECMG", "INTER"].includes(period.type) ? "change-tempo" : "";
+        return `
+          <article class="period ${css}">
+            <div class="period-title">
+              <h3>${escapeHtml(title)}</h3>
+              <time>${escapeHtml(formatRange(period.from, period.to))}</time>
+            </div>
+            <dl class="facts">
+              ${fact("Wind", period.details.wind)}
+              ${fact("Visibility", period.details.visibility)}
+              ${fact("Weather", period.details.weather.join(", "))}
+              ${fact("Cloud", period.details.clouds.join(", "))}
+              ${period.details.temperatures.length ? fact("Temperature", period.details.temperatures.join(", ")) : ""}
+              ${period.details.other.length ? fact("Other", period.details.other.join(", ")) : ""}
+            </dl>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function metric(label, value) {
+      return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+    }
+
+    function fact(label, value) {
+      return `<div class="fact"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+    }
+
+    function formatMaybe(value) {
+      if (!value) return "Unknown";
+      const date = new Date(value);
+      return Number.isNaN(date.valueOf()) ? value : formatDate(date);
+    }
+
+    function formatDate(date) {
+      return new Intl.DateTimeFormat(undefined, {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZoneName: "short",
+        hour12: false
+      }).format(date);
+    }
+
+    function formatShort(date) {
+      return new Intl.DateTimeFormat(undefined, {
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(date);
+    }
+
+    function formatRange(from, to) {
+      if (!from && !to) return "time window in raw group";
+      if (from && to) return `${formatDate(from)} → ${formatDate(to)}`;
+      if (from) return `from ${formatDate(from)}`;
+      return `until ${formatDate(to)}`;
+    }
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    loadTaf(input.value);
+  </script>
+</body>
+</html>
