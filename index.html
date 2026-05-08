@@ -1685,10 +1685,8 @@
           details.weather.push(decodeWeather(token));
         } else if (/^(FEW|SCT|BKN|OVC|VV)\d{3}(CB|TCU)?$/.test(token) || /^(NSC|SKC|CLR)$/.test(token)) {
           details.clouds.push(decodeCloud(token));
-        } else if (token === "NCD") {
-          details.clouds.push("no cloud detected");
-        } else if (/^(M?\d{2}|\/\/)\/(M?\d{2}|\/\/)$/.test(token)) {
-          details.temperature = decodeMetarTemperature(token);
+        } else if (/^TX[M]?\d{2}\/\d{4}Z$/.test(token) || /^TN[M]?\d{2}\/\d{4}Z$/.test(token)) {
+          details.temperatures.push(decodeTemperature(token));
         } else if (/^Q\d{4}$/.test(token)) {
           details.other.push(`QNH ${token.slice(1)} hPa`);
         } else if (/^A\d{4}$/.test(token)) {
@@ -2241,12 +2239,11 @@
     function decodeCloud(token) {
       if (token === "NSC") return "no significant cloud";
       if (token === "SKC" || token === "CLR") return "sky clear";
-      const match = token.match(/^(FEW|SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?$/.test(token) || /^(NSC|SKC|CLR)$/.test(token)) {
-        const height = Number(match[2]) * 100;
-        const cloudType = match[3] === "CB" ? " cumulonimbus" : match[3] === "TCU" ? " towering cumulus" : "";
-        return `${cloudCodes[match[1]]} at ${height.toLocaleString()} ft${cloudType}`;
-      }
-      return token;
+      const match = token.match(/^(FEW|SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?$/);
+      if (!match) return token;
+      const height = Number(match[2]) * 100;
+      const cloudType = match[3] === "CB" ? " cumulonimbus" : match[3] === "TCU" ? " towering cumulus" : "";
+      return `${cloudCodes[match[1]]} at ${height.toLocaleString()} ft${cloudType}`;
     }
 
     function decodeTemperature(token) {
@@ -2317,12 +2314,10 @@
       timelineEl.innerHTML = decoded.periods.map((period) => {
         const title = changeLabels[period.type] || period.type;
         const css = period.type.startsWith("PROB") ? "change-prob" : ["TEMPO", "BECMG", "INTER"].includes(period.type) ? "change-tempo" : "";
-        const now = new Date();
-        const isPast = period.to && period.to < now;
         return `
-          <article class="period ${css}${isPast ? ' period-past' : ''}">
+          <article class="period ${css}">
             <div class="period-title">
-              <h3>${escapeHtml(title)}${isPast ? ' <span class="badge badge-past">Past</span>' : ''}</h3>
+              <h3>${escapeHtml(title)}</h3>
               <time>${escapeHtml(formatRange(period.from, period.to))}</time>
             </div>
             <dl class="facts">
@@ -2332,7 +2327,9 @@
               ${fact("Cloud", period.details.clouds.join(", "))}
               ${period.details.temperatures.length ? fact("Temperature", period.details.temperatures.join(", ")) : ""}
               ${period.details.other.length ? fact("Other", period.details.other.join(", ")) : ""}
-            </dl>`;
+            </dl>
+          </article>
+        `;
       }).join("");
     }
 
