@@ -1388,7 +1388,7 @@
       }
 
       try {
-        return await fetchCodetabsTaf(icao);
+        return await fetchJinaTaf(icao);
       } catch (proxyError) {
         throw new Error(`${proxyError.message} GitHub Pages cannot contact NOAA directly because NOAA blocks browser CORS. If this keeps happening, deploy the included server.js somewhere that supports Node, or add your own CORS proxy.`);
       }
@@ -1396,7 +1396,7 @@
 
     async function fetchLatestMetar(icao) {
       try {
-        return await fetchCodetabsMetar(icao);
+        return await fetchJinaMetar(icao);
       } catch (proxyError) {
         throw new Error(`${proxyError.message} GitHub Pages cannot contact NOAA directly because NOAA blocks browser CORS. If this keeps happening, use a deployed backend or your own CORS proxy.`);
       }
@@ -1415,30 +1415,23 @@
       return payload;
     }
 
-    async function fetchCodetabsTaf(icao) {
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${awcTafUrl(icao).replace(/&/g, "%26")}`;
-      const response = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
-      const text = await response.text();
-
-      if (!response.ok) {
-        throw new Error(`The published page could not reach Aviation Weather for ${icao}.`);
-      }
-
-      const payload = parseJsonText(text);
+    async function fetchJinaTaf(icao) {
+      const payload = await fetchJinaAwcJson(awcTafUrl(icao), icao);
       return normalizeAwcReport(payload, icao);
     }
 
-    async function fetchCodetabsMetar(icao) {
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${awcMetarUrl(icao).replace(/&/g, "%26")}`;
-      const response = await fetch(proxyUrl, { headers: { Accept: "application/json" } });
-      const text = await response.text();
+    async function fetchJinaMetar(icao) {
+      const payload = await fetchJinaAwcJson(awcMetarUrl(icao), icao);
+      return normalizeMetarReport(payload, icao);
+    }
 
+    async function fetchJinaAwcJson(url, icao) {
+      const response = await fetch(`https://r.jina.ai/http://r.jina.ai/http://${url.replace(/&/g, "%26")}`);
       if (!response.ok) {
         throw new Error(`The published page could not reach Aviation Weather for ${icao}.`);
       }
-
-      const payload = parseJsonText(text);
-      return normalizeMetarReport(payload, icao);
+      const text = await response.text();
+      return parseJinaJsonText(text);
     }
 
     function awcTafUrl(icao) {
@@ -1460,6 +1453,16 @@
       } catch {
         throw new Error("The weather service returned a response that was not valid JSON.");
       }
+    }
+
+    function parseJinaJsonText(text) {
+      const marker = "Markdown Content:";
+      const content = text.includes(marker) ? text.slice(text.indexOf(marker) + marker.length).trim() : text.trim();
+      const jsonStart = content.search(/[\[{]/);
+      if (jsonStart === -1) {
+        throw new Error("The weather proxy returned no readable weather data.");
+      }
+      return parseJsonText(content.slice(jsonStart).trim());
     }
 
     function normalizeAwcReport(payload, icao) {
@@ -2585,10 +2588,7 @@ function decodeVisibility(token) {
     }
 
     loadNotes();
-    loadTaf(input.value);
-    loadMetar(metarInput.value);
     loadVatsimAtis(atisInput.value);
-    loadRunwayWindAirport(runwayAirportInput.value);
     calculateFlightLevels(departureInput.value, arrivalInput.value);
   </script>
 </body>
